@@ -1,0 +1,47 @@
+{
+  "Comment": "vECU LPA CIL Pipeline",
+  "StartAt": "LaunchvECU",
+  "States": {
+    "LaunchvECU": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "Parameters": {
+        "Cluster": "vecu-cluster",
+        "TaskDefinition": "vecu-task",
+        "LaunchType": "FARGATE"
+      },
+      "Next": "WaitForResults"
+    },
+    "WaitForResults": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "RunCILTests"
+    },
+    "RunCILTests": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::codebuild:startBuild.sync",
+      "Parameters": { "ProjectName": "vecu-cil-tests" },
+      "Next": "CheckResults"
+    },
+    "CheckResults": {
+      "Type": "Choice",
+      "Choices": [{
+        "Variable": "$.buildStatus",
+        "StringEquals": "SUCCEEDED",
+        "Next": "Success"
+      }],
+      "Default": "AlertFailure"
+    },
+    "AlertFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:us-east-1:ACCOUNT:vecu-alerts",
+        "Message": "CIL Test FAILED — check CloudWatch"
+      },
+      "Next": "Fail"
+    },
+    "Success": { "Type": "Succeed" },
+    "Fail":    { "Type": "Fail", "Error": "CILTestFailed" }
+  }
+}

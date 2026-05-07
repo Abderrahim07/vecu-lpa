@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 2s
+  evaluation_interval: 2s
+
+scrape_configs:
+  - job_name: 'vecu_lpa'
+    static_configs:
+      - targets: ['vecu:5000']

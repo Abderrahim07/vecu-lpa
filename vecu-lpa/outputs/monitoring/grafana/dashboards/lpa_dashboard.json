@@ -1,0 +1,275 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "description": "vECU Lane Protection Assist — Real-time ECU signals",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+
+    {
+      "type": "stat",
+      "id": 1,
+      "title": "LPA Active",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "INACTIVE", "color": "dark-gray" }, "1": { "text": "ACTIVE", "color": "green" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "dark-gray", "value": null }, { "color": "green", "value": 1 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "expr": "lpa_active", "legendFormat": "" }]
+    },
+
+    {
+      "type": "stat",
+      "id": 2,
+      "title": "Warning Left",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "OK", "color": "green" }, "1": { "text": "WARN L ◄", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "expr": "lpa_warning_left", "legendFormat": "" }]
+    },
+
+    {
+      "type": "stat",
+      "id": 3,
+      "title": "Warning Right",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "OK", "color": "green" }, "1": { "text": "WARN R ►", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "expr": "lpa_warning_right", "legendFormat": "" }]
+    },
+
+    {
+      "type": "gauge",
+      "id": 4,
+      "title": "Confidence Score",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "minVizWidth": 0, "minVizHeight": 75, "showThresholdLabels": false, "showThresholdMarkers": true },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 100,
+          "unit": "",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 40 }, { "color": "green", "value": 70 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "expr": "lpa_confidence", "legendFormat": "confidence" }]
+    },
+
+    {
+      "type": "stat",
+      "id": 5,
+      "title": "Vehicle Speed",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "velocitykmh",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }, { "color": "yellow", "value": 100 }, { "color": "red", "value": 140 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "expr": "lpa_vehicle_speed", "legendFormat": "speed" }]
+    },
+
+    {
+      "type": "stat",
+      "id": 6,
+      "title": "System State",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "INACTIVE", "color": "dark-gray" },
+              "1": { "text": "ACTIVE",   "color": "green" },
+              "2": { "text": "WARN L",   "color": "red" },
+              "3": { "text": "WARN R",   "color": "red" }
+            }}
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "dark-gray", "value": null }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "expr": "lpa_system_state", "legendFormat": "" }]
+    },
+
+    {
+      "type": "timeseries",
+      "id": 10,
+      "title": "LPA Active — Timeline",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 6 },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 20 },
+          "color": { "mode": "palette-classic" },
+          "mappings": []
+        }
+      },
+      "targets": [
+        { "expr": "lpa_active",        "legendFormat": "LPA Active" },
+        { "expr": "lpa_warning_left",  "legendFormat": "Warn Left" },
+        { "expr": "lpa_warning_right", "legendFormat": "Warn Right" },
+        { "expr": "lpa_detection_valid", "legendFormat": "Valid" }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "id": 11,
+      "title": "Confidence & Speed",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 6 },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2 },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "targets": [
+        { "expr": "lpa_confidence",    "legendFormat": "Confidence (0-100)" },
+        { "expr": "lpa_vehicle_speed", "legendFormat": "Speed (km/h)" }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "id": 12,
+      "title": "System State",
+      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 5 },
+      "options": { "tooltip": { "mode": "single" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "drawStyle": "line", "spanNulls": true },
+          "color": { "mode": "fixed", "fixedColor": "cyan" },
+          "mappings": [
+            { "type": "value", "options": { "0": {"text":"INACTIVE"}, "1": {"text":"ACTIVE"}, "2": {"text":"WARN_L"}, "3": {"text":"WARN_R"} } }
+          ]
+        }
+      },
+      "targets": [{ "expr": "lpa_system_state", "legendFormat": "State" }]
+    },
+
+    {
+      "type": "timeseries",
+      "id": 13,
+      "title": "Lane Types",
+      "gridPos": { "x": 12, "y": 10, "w": 12, "h": 5 },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "drawStyle": "line" },
+          "color": { "mode": "palette-classic" },
+          "mappings": [
+            { "type": "value", "options": { "0": {"text":"Solid"}, "1": {"text":"Dashed"}, "2": {"text":"None"} } }
+          ]
+        }
+      },
+      "targets": [
+        { "expr": "lpa_lane_left_type",  "legendFormat": "Left Lane Type" },
+        { "expr": "lpa_lane_right_type", "legendFormat": "Right Lane Type" }
+      ]
+    },
+
+    {
+      "type": "stat",
+      "id": 20,
+      "title": "Total Frames",
+      "gridPos": { "x": 0, "y": 15, "w": 4, "h": 3 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } } },
+      "targets": [{ "expr": "lpa_frames_total", "legendFormat": "" }]
+    },
+
+    {
+      "type": "stat",
+      "id": 21,
+      "title": "Warn Left Events",
+      "gridPos": { "x": 4, "y": 15, "w": 4, "h": 3 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } } },
+      "targets": [{ "expr": "lpa_warn_left_total", "legendFormat": "" }]
+    },
+
+    {
+      "type": "stat",
+      "id": 22,
+      "title": "Warn Right Events",
+      "gridPos": { "x": 8, "y": 15, "w": 4, "h": 3 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } } },
+      "targets": [{ "expr": "lpa_warn_right_total", "legendFormat": "" }]
+    },
+
+    {
+      "type": "stat",
+      "id": 23,
+      "title": "Active Frames",
+      "gridPos": { "x": 12, "y": 15, "w": 4, "h": 3 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } } },
+      "targets": [{ "expr": "lpa_active_frames_total", "legendFormat": "" }]
+    },
+
+    {
+      "type": "stat",
+      "id": 24,
+      "title": "Simulation Running",
+      "gridPos": { "x": 16, "y": 15, "w": 4, "h": 3 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": {"text":"STOPPED","color":"dark-gray"}, "1": {"text":"RUNNING","color":"green"} } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{"color":"dark-gray","value":null},{"color":"green","value":1}] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "expr": "lpa_simulation_running", "legendFormat": "" }]
+    }
+  ],
+
+  "refresh": "1s",
+  "schemaVersion": 39,
+  "tags": ["vecu", "lpa", "automotive"],
+  "time": { "from": "now-2m", "to": "now" },
+  "timepicker": {},
+  "title": "vECU — Lane Protection Assist",
+  "uid": "vecu-lpa-v1",
+  "version": 1
+}

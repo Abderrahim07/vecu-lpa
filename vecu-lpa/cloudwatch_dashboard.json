@@ -1,0 +1,85 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0, "y": 0, "width": 12, "height": 6,
+      "properties": {
+        "title": "Confidence par frame",
+        "region": "us-east-1",
+        "metrics": [
+          ["LPA/vECU", "Confidence", "Scenario", "normal",         {"label": "Normal"}],
+          ["LPA/vECU", "Confidence", "Scenario", "vitesse_faible", {"label": "Vitesse Faible"}]
+        ],
+        "period": 1,
+        "stat": "Average",
+        "view": "timeSeries",
+        "annotations": {
+          "horizontal": [
+            {"label": "Seuil CONF_MIN=40", "value": 40, "color": "#ff0000"}
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 0, "width": 12, "height": 6,
+      "properties": {
+        "title": "LPA Active (0=Inactif, 1=Actif)",
+        "region": "us-east-1",
+        "metrics": [
+          ["LPA/vECU", "LPA_Active", "Scenario", "normal",         {"label": "Normal"}],
+          ["LPA/vECU", "LPA_Active", "Scenario", "vitesse_faible", {"label": "Vitesse Faible"}]
+        ],
+        "period": 1,
+        "stat": "Average",
+        "view": "timeSeries",
+        "annotations": {
+          "horizontal": [
+            {"label": "Actif", "value": 1, "color": "#00ff00"}
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 6, "width": 12, "height": 6,
+      "properties": {
+        "title": "S_Cause (0=Off 1=Speed 2=Cam 3=Invalid 4=LowConf 5=OK)",
+        "region": "us-east-1",
+        "metrics": [
+          ["LPA/vECU", "S_Cause", "Scenario", "normal",         {"label": "Normal"}],
+          ["LPA/vECU", "S_Cause", "Scenario", "vitesse_faible", {"label": "Vitesse Faible"}]
+        ],
+        "period": 1,
+        "stat": "Average",
+        "view": "timeSeries",
+        "annotations": {
+          "horizontal": [
+            {"label": "LPA OK", "value": 5, "color": "#00ff00"},
+            {"label": "Low Confidence", "value": 4, "color": "#ff9900"}
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 6, "width": 12, "height": 6,
+      "properties": {
+        "title": "Warnings Left / Right",
+        "region": "us-east-1",
+        "metrics": [
+          ["LPA/vECU", "Warning_Left",  "Scenario", "normal", {"label": "Warning Left"}],
+          ["LPA/vECU", "Warning_Right", "Scenario", "normal", {"label": "Warning Right"}]
+        ],
+        "period": 1,
+        "stat": "Sum",
+        "view": "timeSeries",
+        "annotations": {
+          "horizontal": [
+            {"label": "Warning actif", "value": 1, "color": "#ff0000"}
+          ]
+        }
+      }
+    }
+  ]
+}

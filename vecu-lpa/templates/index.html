@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>vECU · LPA Test Bench</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg:        #0a0c10;
+    --bg2:       #0f1218;
+    --bg3:       #141820;
+    --panel:     #181d26;
+    --border:    #1f2735;
+    --border2:   #2a3545;
+    --cyan:      #00d4ff;
+    --cyan2:     #0099cc;
+    --green:     #00ff88;
+    --green2:    #00b85c;
+    --red:       #ff3355;
+    --red2:      #cc1133;
+    --amber:     #ffaa00;
+    --amber2:    #cc8800;
+    --text:      #c8d8e8;
+    --text2:     #6a7f96;
+    --text3:     #3a4f62;
+    --mono:      'Share Tech Mono', monospace;
+    --display:   'Rajdhani', sans-serif;
+    --r:         4px;
+    --r2:        8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--display); overflow: hidden; }
+
+  /* ── Scanline overlay ───────────────────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px);
+  }
+
+  /* ── Layout ─────────────────────────────────────────────────────────── */
+  .shell {
+    display: grid;
+    grid-template-rows: 52px 1fr 180px;
+    grid-template-columns: 280px 1fr 300px;
+    height: 100vh;
+    gap: 1px;
+    background: var(--border);
+  }
+
+  /* ── Header ─────────────────────────────────────────────────────────── */
+  header {
+    grid-column: 1 / -1;
+    background: var(--bg2);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border2);
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-mark {
+    width: 32px; height: 32px;
+    border: 2px solid var(--cyan);
+    transform: rotate(45deg);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .logo-mark::after {
+    content: '';
+    width: 12px; height: 12px;
+    background: var(--cyan);
+    transform: rotate(0deg);
+  }
+  .logo-text { font-size: 20px; font-weight: 700; letter-spacing: 4px; color: var(--cyan); }
+  .logo-sub  { font-size: 11px; letter-spacing: 3px; color: var(--text2); margin-top: 2px; }
+
+  .header-status {
+    display: flex; align-items: center; gap: 24px;
+    font-family: var(--mono); font-size: 12px; color: var(--text2);
+  }
+  .status-pill {
+    padding: 4px 14px; border-radius: 20px;
+    border: 1px solid var(--border2);
+    font-size: 11px; letter-spacing: 2px;
+    transition: all .3s;
+  }
+  .status-pill.active   { border-color: var(--green);  color: var(--green);  background: rgba(0,255,136,.07); }
+  .status-pill.inactive { border-color: var(--text3);  color: var(--text2); }
+  .status-pill.warn     { border-color: var(--red);    color: var(--red);    background: rgba(255,51,85,.07); animation: pulse-warn .6s ease-in-out infinite alternate; }
+  @keyframes pulse-warn { to { background: rgba(255,51,85,.18); } }
+
+  /* ── Left Panel ─────────────────────────────────────────────────────── */
+  .left-panel {
+    background: var(--bg2);
+    display: flex; flex-direction: column; gap: 1px;
+    overflow: hidden;
+  }
+
+  /* ── Center ─────────────────────────────────────────────────────────── */
+  .center-panel {
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── Right Panel ────────────────────────────────────────────────────── */
+  .right-panel {
+    background: var(--bg2);
+    display: flex; flex-direction: column; gap: 1px;
+    overflow: hidden;
+  }
+
+  /* ── Bottom Bar ─────────────────────────────────────────────────────── */
+  .bottom-bar {
+    grid-column: 1 / -1;
+    background: var(--bg2);
+    border-top: 1px solid var(--border2);
+    display: flex; align-items: stretch; gap: 1px;
+    overflow: hidden;
+  }
+
+  /* ── Section ────────────────────────────────────────────────────────── */
+  .section {
+    padding: 14px 16px;
+    background: var(--panel);
+    flex: 1;
+  }
+  .section-label {
+    font-size: 9px; letter-spacing: 3px; color: var(--text3);
+    text-transform: uppercase; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── Gauges ─────────────────────────────────────────────────────────── */
+  .gauge-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .gauge-box {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 10px 12px;
+    position: relative; overflow: hidden;
+  }
+  .gauge-box::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0;
+    height: 2px; background: var(--border2);
+    transition: background .3s;
+  }
+  .gauge-box.active::before  { background: var(--green); }
+  .gauge-box.warn::before    { background: var(--red); animation: pulse-bar .5s ease-in-out infinite alternate; }
+  .gauge-box.running::before { background: var(--cyan); }
+  @keyframes pulse-bar { to { opacity: .4; } }
+  .gauge-label { font-size: 9px; letter-spacing: 2px; color: var(--text2); margin-bottom: 6px; }
+  .gauge-value { font-family: var(--mono); font-size: 22px; color: var(--text); line-height: 1; }
+  .gauge-value.big  { font-size: 28px; }
+  .gauge-value span { font-size: 11px; color: var(--text2); margin-left: 3px; }
+
+  /* ── State indicator ────────────────────────────────────────────────── */
+  .state-display {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 8px; transition: border-color .3s;
+  }
+  .state-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+  .state-dot.active  { background: var(--green); box-shadow: 0 0 8px var(--green2); }
+  .state-dot.warn    { background: var(--red); box-shadow: 0 0 12px var(--red); animation: blink .4s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .state-name { font-size: 14px; font-weight: 600; letter-spacing: 2px; }
+
+  /* ── Warning arrows ─────────────────────────────────────────────────── */
+  .warn-arrows { display: flex; gap: 8px; margin-bottom: 8px; }
+  .warn-arrow {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 10px; text-align: center;
+    font-size: 11px; letter-spacing: 2px; color: var(--text3);
+    transition: all .2s; position: relative; overflow: hidden;
+  }
+  .warn-arrow .arrow-icon { font-size: 18px; display: block; margin-bottom: 4px; }
+  .warn-arrow.left-on  { border-color: var(--red); color: var(--red); background: rgba(255,51,85,.08); animation: pulse-warn .6s ease-in-out infinite alternate; }
+  .warn-arrow.right-on { border-color: var(--red); color: var(--red); background: rgba(255,51,85,.08); animation: pulse-warn .6s ease-in-out infinite alternate; }
+
+  /* ── Lane visualization ─────────────────────────────────────────────── */
+  .lane-vis {
+    height: 140px; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--r); position: relative; overflow: hidden;
+    margin-bottom: 8px;
+  }
+  #lane-canvas { width: 100%; height: 100%; }
+
+  /* ── Controls ───────────────────────────────────────────────────────── */
+  .ctrl-group { margin-bottom: 12px; }
+  .ctrl-label {
+    font-size: 9px; letter-spacing: 2px; color: var(--text2);
+    display: flex; justify-content: space-between; margin-bottom: 6px;
+  }
+  .ctrl-val { color: var(--cyan); font-family: var(--mono); }
+
+  input[type=range] {
+    width: 100%; height: 4px; background: var(--border2);
+    border-radius: 2px; outline: none; -webkit-appearance: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--cyan); cursor: pointer;
+    box-shadow: 0 0 6px var(--cyan2);
+    transition: transform .15s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.3); }
+
+  select, input[type=text] {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+    color: var(--text); font-family: var(--mono); font-size: 12px;
+    padding: 7px 10px; border-radius: var(--r); outline: none;
+    transition: border-color .2s;
+  }
+  select:focus, input[type=text]:focus { border-color: var(--cyan2); }
+
+  /* ── Toggle ─────────────────────────────────────────────────────────── */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .toggle-name { font-size: 11px; letter-spacing: 1px; color: var(--text2); }
+  .toggle-switch { position: relative; width: 36px; height: 20px; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-track {
+    position: absolute; inset: 0; background: var(--border2);
+    border-radius: 10px; cursor: pointer; transition: background .2s;
+  }
+  .toggle-track::before {
+    content: ''; position: absolute;
+    top: 3px; left: 3px; width: 14px; height: 14px;
+    border-radius: 50%; background: var(--text3);
+    transition: transform .2s, background .2s;
+  }
+  .toggle-switch input:checked + .toggle-track { background: var(--cyan2); }
+  .toggle-switch input:checked + .toggle-track::before { transform: translateX(16px); background: var(--cyan); }
+
+  /* ── Buttons ────────────────────────────────────────────────────────── */
+  .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+  .btn {
+    flex: 1; padding: 10px 0; border: 1px solid var(--border2);
+    background: var(--bg3); color: var(--text); cursor: pointer;
+    font-family: var(--display); font-size: 12px; font-weight: 600;
+    letter-spacing: 2px; border-radius: var(--r);
+    transition: all .2s; text-transform: uppercase;
+  }
+  .btn:hover { border-color: var(--cyan2); color: var(--cyan); }
+  .btn.primary { border-color: var(--green2); color: var(--green); background: rgba(0,255,136,.05); }
+  .btn.primary:hover { background: rgba(0,255,136,.12); }
+  .btn.danger { border-color: var(--red2); color: var(--red); background: rgba(255,51,85,.05); }
+  .btn.danger:hover { background: rgba(255,51,85,.12); }
+  .btn:disabled { opacity: .3; cursor: not-allowed; }
+
+  /* ── Center: main view ─────────────────────────────────────────────── */
+  .main-view {
+    flex: 1; position: relative; background: #000;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  #video-canvas {
+    max-width: 100%; max-height: 100%;
+    display: block; object-fit: contain;
+  }
+  .overlay-hud {
+    position: absolute; inset: 0; pointer-events: none;
+  }
+
+  /* ── Progress bar ───────────────────────────────────────────────────── */
+  .progress-bar-wrap {
+    height: 3px; background: var(--border); position: relative;
+  }
+  .progress-bar-fill {
+    height: 100%; width: 0%; background: var(--cyan);
+    transition: width .3s linear;
+    box-shadow: 0 0 8px var(--cyan2);
+  }
+
+  /* ── Speedometer (center) ───────────────────────────────────────────── */
+  .speedo-wrap {
+    padding: 14px 16px;
+    background: var(--panel);
+    display: flex; align-items: center; justify-content: space-around;
+  }
+
+  /* ── Confidence bar ─────────────────────────────────────────────────── */
+  .conf-bar-wrap { position: relative; height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  .conf-bar-fill {
+    height: 100%; width: 0%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--red2), var(--amber), var(--green2));
+    transition: width .4s ease;
+  }
+
+  /* ── Log ────────────────────────────────────────────────────────────── */
+  .log-panel {
+    flex: 1; background: var(--panel);
+    display: flex; flex-direction: column;
+    overflow: hidden; min-width: 320px;
+  }
+  .log-list {
+    flex: 1; overflow-y: auto; padding: 8px 12px;
+    font-family: var(--mono); font-size: 11px;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .log-list::-webkit-scrollbar { width: 3px; }
+  .log-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .log-entry { display: flex; gap: 8px; align-items: flex-start; }
+  .log-time { color: var(--text3); flex-shrink: 0; }
+  .log-msg { color: var(--text2); word-break: break-all; }
+  .log-entry.ok   .log-msg { color: var(--green); }
+  .log-entry.warn .log-msg { color: var(--amber); }
+  .log-entry.error .log-msg { color: var(--red); }
+  .log-entry.info .log-msg  { color: var(--cyan); }
+
+  /* ── Metric mini grid ───────────────────────────────────────────────── */
+  .mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+  .mini-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 8px 10px;
+  }
+  .mini-label { font-size: 9px; color: var(--text3); letter-spacing: 2px; margin-bottom: 4px; }
+  .mini-val { font-family: var(--mono); font-size: 16px; color: var(--text); }
+
+  /* ── Offset gauge ───────────────────────────────────────────────────── */
+  .offset-track {
+    height: 6px; background: var(--bg3); border-radius: 3px;
+    position: relative; overflow: visible; margin: 8px 0;
+  }
+  .offset-center { position: absolute; left: 50%; top: -2px; width: 2px; height: 10px; background: var(--text3); transform: translateX(-50%); }
+  .offset-needle {
+    position: absolute; top: 0; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--cyan);
+    top: 0; transform: translateX(-50%);
+    transition: left .3s ease;
+    box-shadow: 0 0 6px var(--cyan);
+  }
+  .offset-zones {
+    display: flex; justify-content: space-between;
+    font-size: 9px; color: var(--text3); margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* ── Frame counter ──────────────────────────────────────────────────── */
+  .frame-info {
+    font-family: var(--mono); font-size: 11px; color: var(--text2);
+    padding: 4px 12px; background: var(--bg2); text-align: center;
+  }
+
+  /* ── Grafana tip ────────────────────────────────────────────────────── */
+  .grafana-tip {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-left: 3px solid var(--cyan2);
+    border-radius: var(--r); padding: 8px 10px;
+    font-size: 10px; color: var(--text2); letter-spacing: .5px;
+    margin-top: 8px;
+  }
+  .grafana-tip a { color: var(--cyan); text-decoration: none; }
+
+  /* ── Corner decorations ─────────────────────────────────────────────── */
+  .corner-deco {
+    position: absolute; width: 16px; height: 16px;
+    pointer-events: none; z-index: 10;
+  }
+  .corner-deco.tl { top: 8px; left: 8px; border-top: 1px solid var(--cyan); border-left: 1px solid var(--cyan); }
+  .corner-deco.tr { top: 8px; right: 8px; border-top: 1px solid var(--cyan); border-right: 1px solid var(--cyan); }
+  .corner-deco.bl { bottom: 8px; left: 8px; border-bottom: 1px solid var(--cyan); border-left: 1px solid var(--cyan); }
+  .corner-deco.br { bottom: 8px; right: 8px; border-bottom: 1px solid var(--cyan); border-right: 1px solid var(--cyan); }
+
+  /* ── HUD crosshair ──────────────────────────────────────────────────── */
+  .hud-crosshair {
+    position: absolute; width: 24px; height: 24px;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .hud-crosshair::before, .hud-crosshair::after {
+    content: ''; position: absolute; background: rgba(0,212,255,.4);
+  }
+  .hud-crosshair::before { left: 11px; top: 0; width: 2px; height: 100%; }
+  .hud-crosshair::after  { top: 11px; left: 0; height: 2px; width: 100%; }
+
+  /* ── State banner ───────────────────────────────────────────────────── */
+  #state-banner {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    padding: 4px 20px; border-radius: 20px;
+    font-size: 12px; font-weight: 700; letter-spacing: 3px;
+    border: 1px solid var(--border2); background: rgba(15,18,24,.8);
+    color: var(--text2); pointer-events: none;
+    transition: all .3s; backdrop-filter: blur(4px);
+  }
+  #state-banner.active { border-color: var(--green); color: var(--green); }
+  #state-banner.warn   { border-color: var(--red); color: var(--red); animation: pulse-warn .5s ease-in-out infinite alternate; }
+
+  /* idle placeholder */
+  .idle-msg {
+    text-align: center; color: var(--text3);
+    font-size: 13px; letter-spacing: 2px;
+  }
+  .idle-msg .icon { font-size: 36px; display: block; margin-bottom: 12px; opacity: .4; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <div class="logo-mark"></div>
+      <div>
+        <div class="logo-text">vECU</div>
+        <div class="logo-sub">LANE PROTECTION ASSIST — TEST BENCH</div>
+      </div>
+    </div>
+    <div class="header-status">
+      <span id="hdr-frame" style="font-size:11px">FRAME —</span>
+      <span id="hdr-time" style="font-size:11px">00:00:00</span>
+      <span id="hdr-pill" class="status-pill inactive">INACTIVE</span>
+    </div>
+  </header>
+
+  <!-- ── LEFT: Controls ─────────────────────────────────────────────────── -->
+  <div class="left-panel">
+
+    <div class="section" style="flex:0 0 auto">
+      <div class="section-label">Simulation Input</div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-label">VIDEO FILE</div>
+        <select id="sel-video">
+          <option value="">— select video —</option>
+        </select>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-label">
+          VEHICLE SPEED
+          <span class="ctrl-val" id="lbl-speed">54 km/h</span>
+        </div>
+        <input type="range" id="sl-speed" min="0" max="180" value="54"
+               oninput="onSpeedChange(this.value)">
+      </div>
+
+      <div class="toggle-row">
+        <span class="toggle-name">LPA ACTIVATED</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="tog-lpa" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span class="toggle-name">TURN SIGNAL</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="tog-turn">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn primary" id="btn-start" onclick="startSim()">▶ START</button>
+        <button class="btn danger"  id="btn-stop"  onclick="stopSim()" disabled>■ STOP</button>
+      </div>
+    </div>
+
+    <div class="section" style="flex:1; overflow:hidden; display:flex; flex-direction:column">
+      <div class="section-label">Lane State</div>
+
+      <div class="state-display" id="state-disp">
+        <div class="state-dot" id="state-dot"></div>
+        <div>
+          <div class="state-name" id="state-name">INACTIVE</div>
+          <div style="font-size:10px;color:var(--text2);letter-spacing:1px;margin-top:2px">System state: <span id="state-code" style="color:var(--text);font-family:var(--mono)">0x00</span></div>
+        </div>
+      </div>
+
+      <div class="warn-arrows">
+        <div class="warn-arrow" id="warn-l">
+          <span class="arrow-icon">◄</span>
+          WARN LEFT
+        </div>
+        <div class="warn-arrow" id="warn-r">
+          <span class="arrow-icon">►</span>
+          WARN RIGHT
+        </div>
+      </div>
+
+      <div class="section-label" style="margin-top:4px">Lane Offset</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:10px;color:var(--text2)">POSITION</span>
+        <span style="font-family:var(--mono);font-size:13px;color:var(--cyan)" id="offset-val">0.0%</span>
+      </div>
+      <div class="offset-track">
+        <div class="offset-center"></div>
+        <div class="offset-needle" id="offset-needle" style="left:50%"></div>
+      </div>
+      <div class="offset-zones">
+        <span style="color:var(--red)">◄ -45</span>
+        <span>CENTER</span>
+        <span style="color:var(--red)">+45 ►</span>
+      </div>
+
+      <div class="section-label" style="margin-top:8px">Detection</div>
+      <div class="mini-grid">
+        <div class="mini-card">
+          <div class="mini-label">LEFT LANE</div>
+          <div class="mini-val" id="left-type">DASH</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label">RIGHT LANE</div>
+          <div class="mini-val" id="right-type">DASH</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label">VALIDITY</div>
+          <div class="mini-val" id="valid-val">—</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label">FRAME</div>
+          <div class="mini-val" id="frame-val">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CENTER: Video + HUD ─────────────────────────────────────────────── -->
+  <div class="center-panel">
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+
+    <div class="main-view" id="main-view">
+      <div class="corner-deco tl"></div>
+      <div class="corner-deco tr"></div>
+      <div class="corner-deco bl"></div>
+      <div class="corner-deco br"></div>
+      <div class="hud-crosshair"></div>
+
+      <canvas id="video-canvas" width="640" height="480"></canvas>
+      <div id="idle-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column">
+        <div class="idle-msg">
+          <span class="icon">⬡</span>
+          SELECT A VIDEO AND START SIMULATION
+        </div>
+      </div>
+
+      <div id="state-banner">INACTIVE</div>
+      <div class="overlay-hud" id="hud-overlay"></div>
+    </div>
+
+    <div class="speedo-wrap">
+      <div style="text-align:center">
+        <div style="font-size:9px;letter-spacing:3px;color:var(--text2);margin-bottom:4px">SPEED</div>
+        <div style="font-family:var(--mono);font-size:36px;color:var(--cyan);line-height:1" id="speed-big">54</div>
+        <div style="font-size:9px;color:var(--text2);letter-spacing:2px">KM/H</div>
+      </div>
+
+      <canvas id="speedo-canvas" width="140" height="80" style="display:block"></canvas>
+
+      <div style="text-align:center;min-width:80px">
+        <div style="font-size:9px;letter-spacing:3px;color:var(--text2);margin-bottom:4px">CONFIDENCE</div>
+        <div style="font-family:var(--mono);font-size:36px;line-height:1" id="conf-big">—</div>
+        <div style="font-size:9px;color:var(--text2);letter-spacing:2px">SCORE</div>
+      </div>
+
+      <div style="flex:1;max-width:180px">
+        <div style="font-size:9px;letter-spacing:2px;color:var(--text2);margin-bottom:8px">CONF LEVEL</div>
+        <div class="conf-bar-wrap">
+          <div class="conf-bar-fill" id="conf-bar"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:4px;letter-spacing:1px">
+          <span>LOW</span><span>MED</span><span>HIGH</span>
+        </div>
+        <div class="grafana-tip">
+          Prometheus: <a href="/metrics" target="_blank">/metrics</a><br>
+          Add Grafana datasource → HTTP → <code style="color:var(--cyan)">http://localhost:5000</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: Metrics ─────────────────────────────────────────────────── -->
+  <div class="right-panel">
+
+    <div class="section" style="flex:0 0 auto">
+      <div class="section-label">Session Metrics</div>
+      <div class="gauge-row">
+        <div class="gauge-box" id="g-active">
+          <div class="gauge-label">LPA ACTIVE</div>
+          <div class="gauge-value big" id="gv-active">OFF</div>
+        </div>
+        <div class="gauge-box">
+          <div class="gauge-label">FRAMES PROC.</div>
+          <div class="gauge-value" id="gv-frames">0</div>
+        </div>
+      </div>
+      <div class="gauge-row">
+        <div class="gauge-box">
+          <div class="gauge-label">WARN LEFT</div>
+          <div class="gauge-value" id="gv-wl">0</div>
+        </div>
+        <div class="gauge-box">
+          <div class="gauge-label">WARN RIGHT</div>
+          <div class="gauge-value" id="gv-wr">0</div>
+        </div>
+      </div>
+      <div class="gauge-row">
+        <div class="gauge-box">
+          <div class="gauge-label">ACTIVE FRAMES</div>
+          <div class="gauge-value" id="gv-af">0</div>
+        </div>
+        <div class="gauge-box" id="g-run">
+          <div class="gauge-label">STATUS</div>
+          <div class="gauge-value" id="gv-run" style="font-size:14px;letter-spacing:2px">IDLE</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+      <div class="section-label">Lane Map</div>
+      <div class="lane-vis">
+        <canvas id="lane-canvas" width="300" height="140"></canvas>
+      </div>
+      <div class="section-label" style="margin-top:4px">Output Signals</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text2);line-height:2;border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;background:var(--bg3)">
+        <div>LPA_Active  = <span id="sig-lpa" style="color:var(--green)">0</span></div>
+        <div>Warning_L   = <span id="sig-wl"  style="color:var(--red)">0</span></div>
+        <div>Warning_R   = <span id="sig-wr"  style="color:var(--red)">0</span></div>
+        <div>Sys_State   = <span id="sig-ss"  style="color:var(--cyan)">0x00</span></div>
+        <div>leftType    = <span id="sig-lt"  style="color:var(--text)">1.0</span></div>
+        <div>rightType   = <span id="sig-rt"  style="color:var(--text)">1.0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BOTTOM: Log ─────────────────────────────────────────────────────── -->
+  <div class="bottom-bar">
+    <div class="log-panel">
+      <div class="section-label" style="padding:8px 12px 0;flex-shrink:0">
+        System Log
+        <button onclick="clearLog()" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;letter-spacing:1px">CLEAR</button>
+      </div>
+      <div class="log-list" id="log-list"></div>
+    </div>
+    <div style="width:220px;background:var(--panel);padding:12px 14px;display:flex;flex-direction:column;gap:6px">
+      <div class="section-label" style="margin-bottom:4px">Connection</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text2)">
+        Server: <span id="conn-status" style="color:var(--red)">OFFLINE</span>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3)">
+        SocketIO realtime stream<br>
+        Prometheus on /metrics<br>
+        Grafana scrape interval: 1s
+      </div>
+      <button onclick="window.open('/metrics','_blank')" class="btn" style="margin-top:auto;font-size:10px">VIEW /metrics</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// Socket.IO
+// ══════════════════════════════════════════════════════════════════════════════
+const socket = io({ pingTimeout: 60000, pingInterval: 25000, reconnection: true, reconnectionAttempts: 10, reconnectionDelay: 2000 });
+
+socket.on('connect',    () => { setConn(true); addLog('Connected to vECU server','info'); });
+socket.on('disconnect', () => { setConn(false); addLog('Disconnected','error'); });
+
+socket.on('server_ready', d => addLog(d.msg, 'info'));
+socket.on('error',        d => addLog(d.msg, 'error'));
+socket.on('log',          d => addLog(d.msg, d.level || 'info'));
+
+socket.on('simulation_started', d => {
+  setRunning(true);
+  addLog(`Simulation started: ${d.video} @ ${d.speed} km/h`, 'ok');
+});
+socket.on('simulation_stopped', () => { setRunning(false); addLog('Simulation stopped', 'warn'); });
+socket.on('simulation_done',    d => {
+  setRunning(false);
+  addLog(`Done — ${d.frame_count} frames`, 'ok');
+});
+
+socket.on('frame_result', d => {
+  updateFromResult(d);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// State
+// ══════════════════════════════════════════════════════════════════════════════
+let warnLeftCount  = 0;
+let warnRightCount = 0;
+let activeCount    = 0;
+let totalFrames    = 0;
+let startTime      = null;
+let timerInterval  = null;
+
+function setRunning(r) {
+  document.getElementById('btn-start').disabled = r;
+  document.getElementById('btn-stop').disabled  = !r;
+  document.getElementById('g-run').className = r ? 'gauge-box running' : 'gauge-box';
+  document.getElementById('gv-run').textContent = r ? 'RUNNING' : 'IDLE';
+  if (r) {
+    startTime = Date.now();
+    warnLeftCount = warnRightCount = activeCount = 0;
+    timerInterval = setInterval(updateTimer, 1000);
+  } else {
+    clearInterval(timerInterval);
+  }
+}
+
+function setConn(ok) {
+  document.getElementById('conn-status').textContent = ok ? 'ONLINE' : 'OFFLINE';
+  document.getElementById('conn-status').style.color = ok ? 'var(--green)' : 'var(--red)';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Result Update
+// ══════════════════════════════════════════════════════════════════════════════
+const LANE_LABELS = {0:'SOLID', 1:'DASH', 2:'DASHED'};
+const STATE_NAMES = {0:'INACTIVE', 1:'ACTIVE', 2:'WARN LEFT', 3:'WARN RIGHT'};
+
+function updateFromResult(d) {
+  const r = d.result;
+  totalFrames = d.total;
+
+  // Progress
+  document.getElementById('progress-fill').style.width = d.progress + '%';
+  document.getElementById('hdr-frame').textContent = `FRAME ${d.frame}/${d.total}`;
+  document.getElementById('frame-val').textContent = d.frame;
+  document.getElementById('gv-frames').textContent = d.frame;
+
+  // State
+  const isActive = !!r.active;
+  const isWarnL  = !!r.warn_L;
+  const isWarnR  = !!r.warn_R;
+  const stateN   = STATE_NAMES[r.cause] || 'UNKNOWN';
+  const stateHex = '0x0' + (r.cause || 0);
+
+  document.getElementById('state-name').textContent = stateN;
+  document.getElementById('state-code').textContent = stateHex;
+  document.getElementById('sig-ss').textContent = stateHex;
+
+  const dot = document.getElementById('state-dot');
+  const banner = document.getElementById('state-banner');
+  const pill   = document.getElementById('hdr-pill');
+
+  if (isWarnL || isWarnR) {
+    dot.className = 'state-dot warn';
+    banner.className = 'warn'; banner.textContent = isWarnL ? '⚠ WARN LEFT' : '⚠ WARN RIGHT';
+    pill.className = 'status-pill warn'; pill.textContent = isWarnL ? 'WARN L' : 'WARN R';
+  } else if (isActive) {
+    dot.className = 'state-dot active';
+    banner.className = 'active'; banner.textContent = 'ACTIVE';
+    pill.className = 'status-pill active'; pill.textContent = 'ACTIVE';
+  } else {
+    dot.className = 'state-dot';
+    banner.className = ''; banner.textContent = 'INACTIVE';
+    pill.className = 'status-pill inactive'; pill.textContent = 'INACTIVE';
+  }
+
+  // Warnings
+  document.getElementById('warn-l').className = 'warn-arrow' + (isWarnL ? ' left-on' : '');
+  document.getElementById('warn-r').className = 'warn-arrow' + (isWarnR ? ' right-on' : '');
+
+  // Signals
+  document.getElementById('sig-lpa').textContent = isActive ? '1' : '0';
+  document.getElementById('sig-wl').textContent  = isWarnL  ? '1' : '0';
+  document.getElementById('sig-wr').textContent  = isWarnR  ? '1' : '0';
+  document.getElementById('sig-lt').textContent  = r.leftT.toFixed(1);
+  document.getElementById('sig-rt').textContent  = r.rightT.toFixed(1);
+
+  // Gauges
+  const gActive = document.getElementById('g-active');
+  const gvActive = document.getElementById('gv-active');
+  if (isWarnL || isWarnR) {
+    gActive.className = 'gauge-box warn'; gvActive.textContent = 'WARN';
+    gvActive.style.color = 'var(--red)';
+  } else if (isActive) {
+    gActive.className = 'gauge-box active'; gvActive.textContent = 'ON';
+    gvActive.style.color = 'var(--green)';
+  } else {
+    gActive.className = 'gauge-box'; gvActive.textContent = 'OFF';
+    gvActive.style.color = 'var(--text)';
+  }
+
+  if (isWarnL) { warnLeftCount++;  document.getElementById('gv-wl').textContent = warnLeftCount; }
+  if (isWarnR) { warnRightCount++; document.getElementById('gv-wr').textContent = warnRightCount; }
+  if (isActive){ activeCount++;    document.getElementById('gv-af').textContent = activeCount; }
+
+  // Confidence
+  const conf = parseFloat(r.conf) || 0;
+  document.getElementById('conf-big').textContent = Math.round(conf);
+  document.getElementById('conf-big').style.color = conf > 70 ? 'var(--green)' : conf > 40 ? 'var(--amber)' : 'var(--red)';
+  document.getElementById('conf-bar').style.width = Math.min(conf, 100) + '%';
+
+  // Lane types
+  document.getElementById('left-type').textContent  = LANE_LABELS[Math.round(r.leftT)]  || '—';
+  document.getElementById('right-type').textContent = LANE_LABELS[Math.round(r.rightT)] || '—';
+  document.getElementById('valid-val').textContent  = r.valid ? 'YES' : 'NO';
+  document.getElementById('valid-val').style.color  = r.valid ? 'var(--green)' : 'var(--text2)';
+
+  // Offset needle (range -100..+100 → 0..100%)
+  const offset = r.offset_percent || 0;
+  const needlePos = 50 + (offset / 200) * 100;
+  document.getElementById('offset-needle').style.left = Math.max(0, Math.min(100, needlePos)) + '%';
+  document.getElementById('offset-val').textContent = (offset >= 0 ? '+' : '') + offset.toFixed(1) + '%';
+
+  // Draw lane canvas
+  drawLaneMap(r);
+
+  // Draw fake video overlay on canvas
+  drawVideoFrame(d.frame, r);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Canvas: Lane Map
+// ══════════════════════════════════════════════════════════════════════════════
+function drawLaneMap(r) {
+  const c = document.getElementById('lane-canvas');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Road background
+  ctx.fillStyle = '#1a2030';
+  ctx.fillRect(0, 0, W, H);
+
+  // Lane perspective trapezoid
+  const laneW = 80, rearW = 160;
+  const cx = W / 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - rearW/2, H);
+  ctx.lineTo(cx + rearW/2, H);
+  ctx.lineTo(cx + laneW/2, 10);
+  ctx.lineTo(cx - laneW/2, 10);
+  ctx.closePath();
+  ctx.fillStyle = '#222a3a';
+  ctx.fill();
+
+  // Vehicle offset shift
+  const shift = (r.offset_percent || 0) / 100 * (rearW * 0.3);
+
+  // Left lane line
+  const leftColor = r.warn_L ? '#ff3355' : (r.leftT === 0 ? '#00ff88' : '#4488cc');
+  ctx.beginPath();
+  ctx.moveTo(cx - rearW/2 + shift, H - 4);
+  ctx.lineTo(cx - laneW/2 + shift * 0.3, 10);
+  ctx.strokeStyle = leftColor;
+  ctx.lineWidth = r.leftT === 0 ? 2.5 : 1.5;
+  if (r.leftT === 1) { ctx.setLineDash([8, 6]); } else { ctx.setLineDash([]); }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Right lane line
+  const rightColor = r.warn_R ? '#ff3355' : (r.rightT === 0 ? '#00ff88' : '#4488cc');
+  ctx.beginPath();
+  ctx.moveTo(cx + rearW/2 + shift, H - 4);
+  ctx.lineTo(cx + laneW/2 + shift * 0.3, 10);
+  ctx.strokeStyle = rightColor;
+  ctx.lineWidth = r.rightT === 0 ? 2.5 : 1.5;
+  if (r.rightT === 1) { ctx.setLineDash([8, 6]); } else { ctx.setLineDash([]); }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Vehicle icon
+  const carW = 30, carH = 16;
+  const carX = cx - carW/2 + shift * 0.5;
+  const carY = H - carH - 10;
+
+  ctx.fillStyle = r.warn_L || r.warn_R ? '#ff3355' : (r.active ? '#00d4ff' : '#4a6080');
+  ctx.beginPath();
+  ctx.roundRect(carX, carY, carW, carH, 3);
+  ctx.fill();
+
+  // Headlights
+  ctx.fillStyle = 'rgba(255,255,200,.8)';
+  ctx.fillRect(carX + 4,  carY + 3, 5, 3);
+  ctx.fillRect(carX + carW - 9, carY + 3, 5, 3);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Canvas: Video overlay (simulated — replace with actual frame rendering)
+// ══════════════════════════════════════════════════════════════════════════════
+let frameN = 0;
+function drawVideoFrame(frame, r) {
+  frameN = frame;
+  const c = document.getElementById('video-canvas');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+
+  // Dark road scene background
+  ctx.fillStyle = '#0d1018';
+  ctx.fillRect(0, 0, W, H);
+
+  // Vanishing point perspective lines (road)
+  const vx = W/2 + (r.offset_percent || 0) * 1.5;
+  const vy = H * 0.42;
+
+  ctx.strokeStyle = 'rgba(255,255,255,.05)';
+  ctx.lineWidth = 1;
+  for(let x = 0; x <= W; x += 60) {
+    ctx.beginPath(); ctx.moveTo(x, H); ctx.lineTo(vx, vy); ctx.stroke();
+  }
+
+  // Road surface gradient
+  const grad = ctx.createLinearGradient(0, vy, 0, H);
+  grad.addColorStop(0, 'rgba(30,40,55,.0)');
+  grad.addColorStop(1, 'rgba(30,40,55,.6)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, vy, W, H - vy);
+
+  // Lane markings — left
+  const warnL = !!r.warn_L, warnR = !!r.warn_R;
+  drawLaneLine(ctx, vx, vy, W, H, -1, warnL ? '#ff3355' : '#ffffff', r.leftT !== 0);
+  drawLaneLine(ctx, vx, vy, W, H,  1, warnR ? '#ff3355' : '#ffffff', r.rightT !== 0);
+
+  // Horizon glow
+  const hgrad = ctx.createRadialGradient(vx, vy, 0, vx, vy, 200);
+  hgrad.addColorStop(0, 'rgba(0,80,140,.2)');
+  hgrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = hgrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // HUD overlays
+  // Top bar
+  ctx.fillStyle = 'rgba(10,14,22,.7)';
+  ctx.fillRect(0, 0, W, 36);
+
+  ctx.fillStyle = '#6a7f96';
+  ctx.font = '11px "Share Tech Mono", monospace';
+  ctx.fillText(`FRAME: ${String(frame).padStart(4,'0')}`, 12, 22);
+
+  const stateColors = {0:'#6a7f96', 1:'#00ff88', 2:'#ff3355', 3:'#ff3355'};
+  const stateLabels = {0:'INACTIVE', 1:'ACTIVE', 2:'WARN LEFT', 3:'WARN RIGHT'};
+  ctx.fillStyle = stateColors[r.cause] || '#6a7f96';
+  ctx.font = 'bold 11px "Share Tech Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(stateLabels[r.cause] || '—', W/2, 22);
+
+  ctx.fillStyle = '#6a7f96';
+  ctx.textAlign = 'right';
+  ctx.font = '11px "Share Tech Mono", monospace';
+  ctx.fillText(`CONF: ${Math.round(r.conf)}%`, W - 12, 22);
+  ctx.textAlign = 'left';
+
+  // Bottom bar
+  ctx.fillStyle = 'rgba(10,14,22,.75)';
+  ctx.fillRect(0, H - 30, W, 30);
+
+  ctx.fillStyle = warnL || warnR ? '#ff3355' : (r.active ? '#00d4ff' : '#6a7f96');
+  ctx.font = 'bold 12px "Rajdhani", sans-serif';
+  ctx.fillText(r.active ? '● LPA ACTIVE' : '○ LPA INACTIVE', 12, H - 10);
+
+  if (warnL) {
+    ctx.fillStyle = '#ff3355';
+    ctx.font = 'bold 12px "Rajdhani", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚠ DEPARTURE WARNING LEFT', W/2, H - 10);
+    ctx.textAlign = 'left';
+  }
+  if (warnR) {
+    ctx.fillStyle = '#ff3355';
+    ctx.font = 'bold 12px "Rajdhani", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚠ DEPARTURE WARNING RIGHT', W/2, H - 10);
+    ctx.textAlign = 'left';
+  }
+
+  // Idle overlay hide
+  document.getElementById('idle-overlay').style.display = 'none';
+}
+
+function drawLaneLine(ctx, vx, vy, W, H, side, color, dashed) {
+  const spread = 140;
+  const bx = W/2 + side * spread;
+  ctx.beginPath();
+  ctx.moveTo(vx + side * 8, vy);
+  ctx.lineTo(bx, H);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  if (dashed) {
+    ctx.setLineDash([20, 14]);
+  } else {
+    ctx.setLineDash([]);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Speedometer arc canvas
+// ══════════════════════════════════════════════════════════════════════════════
+function drawSpeedo(speed) {
+  const c = document.getElementById('speedo-canvas');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = W/2, cy = H + 10;
+  const r = H + 10;
+
+  // Background arc
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 10, Math.PI, 2*Math.PI);
+  ctx.strokeStyle = '#1f2735';
+  ctx.lineWidth = 8;
+  ctx.stroke();
+
+  // Fill arc
+  const pct = Math.min(speed / 180, 1);
+  const startA = Math.PI;
+  const endA   = Math.PI + pct * Math.PI;
+  const arcColor = speed > 120 ? '#ff3355' : speed > 70 ? '#ffaa00' : '#00d4ff';
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 10, startA, endA);
+  ctx.strokeStyle = arcColor;
+  ctx.lineWidth = 8;
+  ctx.stroke();
+
+  // Min speed marker (10 km/h)
+  const minAngle = Math.PI + (10/180) * Math.PI;
+  const mx = cx + (r-10) * Math.cos(minAngle);
+  const my = cy + (r-10) * Math.sin(minAngle);
+  ctx.beginPath(); ctx.arc(mx, my, 3, 0, Math.PI*2);
+  ctx.fillStyle = '#4488cc'; ctx.fill();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Controls
+// ══════════════════════════════════════════════════════════════════════════════
+function onSpeedChange(v) {
+  document.getElementById('lbl-speed').textContent = v + ' km/h';
+  document.getElementById('speed-big').textContent = v;
+  drawSpeedo(+v);
+  socket.emit('update_speed', { speed: +v });
+}
+
+function startSim() {
+  const video = document.getElementById('sel-video').value;
+  if (!video) { addLog('No video selected', 'error'); return; }
+  const speed  = +document.getElementById('sl-speed').value;
+  const lpa    = document.getElementById('tog-lpa').checked ? 1 : 0;
+  const turn   = document.getElementById('tog-turn').checked ? 1 : 0;
+  socket.emit('start_simulation', { video, speed, lpa_act: lpa, turn_signal: turn });
+}
+
+function stopSim() {
+  socket.emit('stop_simulation');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Log
+// ══════════════════════════════════════════════════════════════════════════════
+function addLog(msg, level = 'info') {
+  const list = document.getElementById('log-list');
+  const now = new Date().toTimeString().slice(0,8);
+  const div = document.createElement('div');
+  div.className = 'log-entry ' + level;
+  div.innerHTML = `<span class="log-time">${now}</span><span class="log-msg">${msg}</span>`;
+  list.appendChild(div);
+  list.scrollTop = list.scrollHeight;
+  if (list.children.length > 200) list.removeChild(list.children[0]);
+}
+
+function clearLog() {
+  document.getElementById('log-list').innerHTML = '';
+}
+
+function updateTimer() {
+  if (!startTime) return;
+  const s = Math.floor((Date.now() - startTime) / 1000);
+  const h = String(Math.floor(s/3600)).padStart(2,'0');
+  const m = String(Math.floor((s%3600)/60)).padStart(2,'0');
+  const ss = String(s%60).padStart(2,'0');
+  document.getElementById('hdr-time').textContent = `${h}:${m}:${ss}`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════════════════════════════════════════
+(async function init() {
+  drawSpeedo(54);
+
+  // Load videos
+  try {
+    const res = await fetch('/api/videos');
+    const data = await res.json();
+    const sel = document.getElementById('sel-video');
+    data.videos.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v; opt.textContent = v;
+      sel.appendChild(opt);
+    });
+    if (data.videos.length > 0) {
+      sel.value = data.videos[0];
+      addLog(`${data.videos.length} video(s) available`, 'ok');
+    } else {
+      addLog('No videos in inputs/videos/', 'warn');
+    }
+  } catch(e) {
+    addLog('Failed to load video list', 'error');
+  }
+
+  // Animate idle canvas
+  let idleFrame = 0;
+  function animateIdle() {
+    if (!document.getElementById('idle-overlay') || document.getElementById('idle-overlay').style.display === 'none') return;
+    const c = document.getElementById('video-canvas');
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#08090d';
+    ctx.fillRect(0, 0, c.width, c.height);
+    idleFrame++;
+    const t = idleFrame * 0.02;
+    for(let i = 0; i < 5; i++) {
+      const x = c.width/2 + Math.cos(t + i * 1.2) * (60 + i*15);
+      const y = c.height/2 + Math.sin(t * 0.7 + i) * 20;
+      ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(0,180,220,${0.1 + i*0.05})`; ctx.fill();
+    }
+    requestAnimationFrame(animateIdle);
+  }
+  animateIdle();
+})();
+</script>
+</body>
+</html>
